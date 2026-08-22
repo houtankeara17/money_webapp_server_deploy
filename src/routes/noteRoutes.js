@@ -12,6 +12,7 @@ const {
   deleteAllNotes,
   exportNotes,
   importNotes,
+  reorderNotes,
 } = require("../controllers/noteController");
 
 router.use(protect);
@@ -20,7 +21,7 @@ router.route("/").get(getNotes).post(createNote).delete(deleteAllNotes);
 
 router.get("/export", exportNotes);
 router.post("/import", importNotes);
-
+router.patch("/reorder", reorderNotes);
 router.route("/:id").put(updateNote).delete(deleteNote);
 
 router.patch("/:id/pin", togglePin);

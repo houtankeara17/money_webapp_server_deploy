@@ -13,7 +13,8 @@ const getNotes = asyncHandler(async (req, res) => {
     pinned,
     folderId,
     type,
-    sort = "-pinned,-position,-updatedAt",
+    // CHANGED: -pinned puts pinned first, position (ascending) puts index 0 first
+    sort = "-pinned position -updatedAt",
   } = req.query;
 
   const query = { userId: toObjectId(req.user._id) };
@@ -260,7 +261,7 @@ const duplicateNote = asyncHandler(async (req, res) => {
     fileType: note.fileType,
     fileUrl: note.fileUrl,
     fileSize: note.fileSize,
-    title: `${note.title} (copy)`,
+    title: `${note.title} ${msg(req, "note.copySuffix")}`,
     body: note.body,
     icon: note.icon,
     categoryTag: note.categoryTag,
@@ -354,6 +355,25 @@ const importNotes = asyncHandler(async (req, res) => {
   );
 });
 
+const reorderNotes = asyncHandler(async (req, res) => {
+  const items = Array.isArray(req.body) ? req.body : req.body.items;
+
+  if (!items || !Array.isArray(items)) {
+    return error(res, msg(req, "note.invalidItemsArray"), 400);
+  }
+
+  const bulkOps = items.map((item, index) => ({
+    updateOne: {
+      filter: { _id: toObjectId(item._id), userId: toObjectId(req.user._id) },
+      update: { $set: { position: item.position ?? index } },
+    },
+  }));
+
+  await Note.bulkWrite(bulkOps);
+
+  return success(res, null, msg(req, "note.reorderedSuccess"));
+});
+
 module.exports = {
   getNotes,
   createNote,
@@ -365,4 +385,5 @@ module.exports = {
   deleteAllNotes,
   exportNotes,
   importNotes,
+  reorderNotes,
 };

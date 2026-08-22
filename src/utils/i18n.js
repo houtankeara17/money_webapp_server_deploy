@@ -197,6 +197,14 @@ const messages = {
     "saving.importNoItems": "No valid savings data provided in 'items' array.",
     "saving.importNoRowsFound": "No valid rows found in file.",
     "saving.importedSuccess": "savings records imported successfully",
+
+    // --- Folder Translations ---
+    "folder.notFound": "Folder not found",
+
+    // --- Note Translations ---
+    "note.copySuffix": "(copy)",
+    "note.invalidItemsArray": "Invalid items array provided",
+    "note.reorderedSuccess": "Order updated successfully",
   },
   km: {
     unauthorized: "មិនមានសិទ្ធិ",
@@ -395,6 +403,13 @@ const messages = {
       "គ្មានទិន្នន័យសន្សំត្រឹមត្រូវនៅក្នុង 'items' ត្រូវបានផ្តល់ជូនទេ",
     "saving.importNoRowsFound": "រកមិនឃើញជួរដេកត្រឹមត្រូវក្នុងឯកសារទេ",
     "saving.importedSuccess": "បាននាំចូលសន្សំដោយជោគជ័យ",
+    // --- Folder Translations ---
+    "folder.notFound": "រកមិនឃើញថត",
+
+    // --- Note Translations ---
+    "note.copySuffix": "(ចម្លង)",
+    "note.invalidItemsArray": "ទិន្នន័យបញ្ជីមិនត្រឹមត្រូវ",
+    "note.reorderedSuccess": "បានធ្វើបច្ចុប្បន្នភាពលំដាប់ដោយជោគជ័យ",
   },
 };
 
