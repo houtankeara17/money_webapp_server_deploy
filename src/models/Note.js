@@ -69,6 +69,7 @@ const noteSchema = new mongoose.Schema(
     image: { type: String, default: "" },
     images: [{ type: String }],
     links: [noteLinkSchema],
+    password: { type: String, default: "" },
     color: {
       type: String,
       default: "default",
