@@ -89,6 +89,7 @@ const createNote = asyncHandler(async (req, res) => {
     fileType,
     fileUrl,
     fileSize,
+    password,
   } = req.body;
 
   if (!title?.trim()) return error(res, msg(req, "note.titleRequired"), 400);
@@ -115,25 +116,26 @@ const createNote = asyncHandler(async (req, res) => {
     .select("position");
 
   const note = await Note.create({
-    userId: toObjectId(req.user._id),
-    folderId: folderId ? toObjectId(folderId) : null,
-    type: itemType,
-    fileType: fileType || "",
-    fileUrl: fileUrl || "",
-    fileSize: fileSize || 0,
-    title: title.trim(),
-    body: body || "",
-    icon: icon || defaultIcon,
-    categoryTag: categoryTag || "General",
-    image: image || "",
-    images: images || [],
-    links: links || [],
-    color: color || "default",
-    pinned: !!pinned,
-    items: items || [],
-    position: (maxPos?.position || 0) + 1,
-    column: column || 0,
-  });
+  userId: toObjectId(req.user._id),
+  folderId: folderId ? toObjectId(folderId) : null,
+  type: itemType,
+  fileType: fileType || "",
+  fileUrl: fileUrl || "",
+  fileSize: fileSize || 0,
+  title: title.trim(),
+  body: body || "",
+  icon: icon || defaultIcon,
+  categoryTag: categoryTag || "General",
+  image: image || "",
+  images: images || [],
+  links: links || [],
+  color: color || "default",
+  pinned: !!pinned,
+  items: items || [],
+  position: (maxPos?.position || 0) + 1,
+  column: column || 0,
+  password: password || "", // ← add this
+});
 
   return success(res, note, msg(req, "note.created"), 201);
 });
@@ -163,6 +165,7 @@ const updateNote = asyncHandler(async (req, res) => {
     "fileType",
     "fileUrl",
     "fileSize",
+    "password", // ← add this
   ];
 
   fields.forEach((f) => {
