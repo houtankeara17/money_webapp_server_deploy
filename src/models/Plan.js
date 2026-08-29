@@ -1,8 +1,16 @@
 const mongoose = require("mongoose");
 
 /**
- * Life goals + Investment returns list
- * Investment: log each gain/return → list how much you got
+ * Plans → Savings → Budget (investment flow)
+ *
+ * Investment example:
+ *   Capital 1000$ in plan → monthly profit 50$
+ *   → each profit creates Saving (category Investment) + listed on plan.investmentReturns
+ *   → optional Budget spending envelope +
+ *
+ * Borrow on saving (not a new entity):
+ *   kind "borrow" = take profit from investment saving for everyday spend
+ *   → recorded on plan only (info) + optional Expense
  */
 
 const investmentReturnSchema = new mongoose.Schema(
@@ -12,14 +20,23 @@ const investmentReturnSchema = new mongoose.Schema(
     amountUSD: { type: Number, required: true },
     date: { type: Date, default: Date.now },
     noted: { type: String, default: "" },
-    /** profit | dividend | sale | other */
     kind: {
       type: String,
-      enum: ["profit", "dividend", "sale", "deposit", "other"],
+      enum: ["profit", "dividend", "sale", "deposit", "borrow", "other"],
       default: "profit",
     },
+    linkedSavingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Saving",
+      default: null,
+    },
+    linkedExpenseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Expense",
+      default: null,
+    },
   },
-  { _id: true },
+  { _id: true }
 );
 
 const planSchema = new mongoose.Schema(
@@ -45,6 +62,7 @@ const planSchema = new mongoose.Schema(
         "Emergency",
         "Vehicle",
         "Investment",
+        "Long-term Savings",
         "Long term Savings",
         "Goals",
         "Other",
@@ -83,14 +101,13 @@ const planSchema = new mongoose.Schema(
     },
     images: [{ type: String }],
     noted: { type: String, default: "" },
-    /**
-     * Investment only: list of gains / returns (how much you got)
-     * totalGainUSD is sum of amountUSD (can be negative if loss)
-     */
     investmentReturns: { type: [investmentReturnSchema], default: [] },
+    /** Net gain = profits − borrows (USD) */
     totalGainUSD: { type: Number, default: 0 },
+    /** Sum of borrow amounts (USD) — info only */
+    totalBorrowedFromGainUSD: { type: Number, default: 0 },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 planSchema.index({ userId: 1, status: 1 });
