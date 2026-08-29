@@ -60,8 +60,15 @@ const savingSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    /** Linked Investment plan when this saving is a profit/deposit from a Plan */
+    planId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Plan",
+      default: null,
+      index: true,
+    },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 savingSchema.index({ userId: 1, year: 1, monthNumber: 1 });
