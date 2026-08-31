@@ -13,12 +13,9 @@ const {
 
 router.use(protect);
 
-// Export / Import Static Routes
+router.route("/").get(getBudgets).post(createBudget).delete(deleteAllBudgets);
 router.get("/export", exportBudgets);
 router.post("/import", importBudgets);
-
-router.route("/").get(getBudgets).post(createBudget).delete(deleteAllBudgets);
-
 router.route("/:id").put(updateBudget).delete(deleteBudget);
 
 module.exports = router;
