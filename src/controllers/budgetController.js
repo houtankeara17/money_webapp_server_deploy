@@ -5,32 +5,57 @@ const { success, error } = require("../utils/response");
 const { msg } = require("../utils/i18n");
 
 const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 const getBudgets = asyncHandler(async (req, res) => {
   const { year, monthNumber, page = 1, limit = 24 } = req.query;
-  const query = { userId: toObjectId(req.user._id) };
+  const userId = toObjectId(req.user._id);
+  const query = { userId };
   if (year) query.year = Number(year);
   if (monthNumber) query.monthNumber = Number(monthNumber);
 
   const skip = (Number(page) - 1) * Number(limit);
   const total = await Budget.countDocuments(query);
   const items = await Budget.find(query)
-    .sort("-year,-monthNumber")
+    .sort("-year -monthNumber")
     .skip(skip)
     .limit(Number(limit));
+
+  const yearQuery = { userId };
+  if (year) yearQuery.year = Number(year);
+
+  const yearAgg = await Budget.aggregate([
+    { $match: yearQuery },
+    {
+      $group: {
+        _id: null,
+        totalPlannedUSD: { $sum: "$plannedIncomeUSD" },
+        totalSavingsUSD: { $sum: "$savingsAmountUSD" },
+        totalRemittanceUSD: { $sum: "$remittanceAmountUSD" },
+        totalSpendingUSD: { $sum: "$spendingAmountUSD" },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const yearsAgg = await Budget.aggregate([
+    { $match: { userId } },
+    { $group: { _id: "$year" } },
+    { $sort: { _id: -1 } },
+  ]);
+
+  const ya = yearAgg[0] || {};
+  const yearSummary = {
+    totalPlannedUSD: ya.totalPlannedUSD || 0,
+    totalEnvelopesUSD:
+      (ya.totalSavingsUSD || 0) +
+      (ya.totalRemittanceUSD || 0) +
+      (ya.totalSpendingUSD || 0),
+    totalSpendingUSD: ya.totalSpendingUSD || 0,
+    count: ya.count || 0,
+  };
 
   return success(res, {
     items,
@@ -40,6 +65,8 @@ const getBudgets = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / Number(limit)) || 1,
     },
+    yearSummary,
+    availableYears: yearsAgg.map((y) => y._id),
   });
 });
 
@@ -56,12 +83,13 @@ const createBudget = asyncHandler(async (req, res) => {
   } = req.body;
 
   if (!year || !monthNumber) {
-    return error(res, msg(req, "budget.requiredFields"), 400);
+    return error(res, msg(req, "budget.requiredFields") || "Year and month required", 400);
   }
 
   const mn = Number(monthNumber);
-  if (mn < 1 || mn > 12)
-    return error(res, msg(req, "budget.invalidMonth"), 400);
+  if (mn < 1 || mn > 12) {
+    return error(res, msg(req, "budget.invalidMonth") || "Invalid month", 400);
+  }
 
   const exists = await Budget.findOne({
     userId: toObjectId(req.user._id),
@@ -69,7 +97,7 @@ const createBudget = asyncHandler(async (req, res) => {
     monthNumber: mn,
   });
   if (exists) {
-    return error(res, msg(req, "budget.exists"), 400);
+    return error(res, msg(req, "budget.exists") || "Budget already exists for this month", 400);
   }
 
   const cur = currency || "USD";
@@ -98,7 +126,7 @@ const updateBudget = asyncHandler(async (req, res) => {
     _id: req.params.id,
     userId: toObjectId(req.user._id),
   });
-  if (!budget) return error(res, msg(req, "budget.notFound"), 404);
+  if (!budget) return error(res, msg(req, "budget.notFound") || "Not found", 404);
 
   const fields = [
     "year",
@@ -128,75 +156,60 @@ const updateBudget = asyncHandler(async (req, res) => {
   return success(res, updated, msg(req, "budget.updated"));
 });
 
-// DELETE /api/budgets/:id
 const deleteBudget = asyncHandler(async (req, res) => {
   const budget = await Budget.findOneAndDelete({
     _id: req.params.id,
     userId: toObjectId(req.user._id),
   });
-  if (!budget) return error(res, msg(req, "budget.notFound"), 404);
+  if (!budget) return error(res, msg(req, "budget.notFound") || "Not found", 404);
   return success(res, null, msg(req, "budget.deleted"));
 });
 
-// DELETE /api/budgets
 const deleteAllBudgets = asyncHandler(async (req, res) => {
   const result = await Budget.deleteMany({ userId: toObjectId(req.user._id) });
   return success(
     res,
     { deletedCount: result.deletedCount },
-    msg(req, "budget.allDeleted"),
+    msg(req, "budget.allDeleted")
   );
 });
 
-// GET /api/budgets/export
 const exportBudgets = asyncHandler(async (req, res) => {
   const items = await Budget.find({ userId: toObjectId(req.user._id) }).sort(
-    "-year,-monthNumber",
+    "-year -monthNumber"
   );
   return success(res, items, msg(req, "budget.exportReady"));
 });
 
-// POST /api/budgets/import
 const importBudgets = asyncHandler(async (req, res) => {
   const { items } = req.body;
-
   if (!Array.isArray(items) || items.length === 0) {
-    return error(res, msg(req, "budget.importNoData"), 400);
+    return error(res, msg(req, "budget.importNoData") || "No data", 400);
   }
 
   const createdBudgets = [];
-
   for (const row of items) {
-    // Read fields flexibly across case variations
     const year = Number(row.Year ?? row.year);
     const mn = Number(
-      row.Month ?? row.monthNumber ?? row.month ?? row["Month Number"],
+      row.Month ?? row.monthNumber ?? row.month ?? row["Month Number"]
     );
     const currency = row.Currency || row.currency || "USD";
     const plannedIncome =
-      Number(row.PlannedIncome ?? row.plannedIncome ?? row["Planned Income"]) ||
-      0;
+      Number(row.PlannedIncome ?? row.plannedIncome ?? row["Planned Income"]) || 0;
     const savingsAmount =
-      Number(row.SavingsAmount ?? row.savingsAmount ?? row["Savings Amount"]) ||
-      0;
+      Number(row.SavingsAmount ?? row.savingsAmount ?? row["Savings Amount"]) || 0;
     const remittanceAmount =
       Number(
-        row.RemittanceAmount ??
-          row.remittanceAmount ??
-          row["Remittance Amount"],
+        row.RemittanceAmount ?? row.remittanceAmount ?? row["Remittance Amount"]
       ) || 0;
     const spendingAmount =
       Number(
-        row.SpendingAmount ?? row.spendingAmount ?? row["Spending Amount"],
+        row.SpendingAmount ?? row.spendingAmount ?? row["Spending Amount"]
       ) || 0;
     const noted = row.Noted || row.noted || row.Note || row.note || "";
 
-    // Validate essential keys
-    if (!year || isNaN(year) || !mn || isNaN(mn) || mn < 1 || mn > 12) {
-      continue;
-    }
+    if (!year || isNaN(year) || !mn || isNaN(mn) || mn < 1 || mn > 12) continue;
 
-    // Skip duplicate entry for same user, year, and month
     const exists = await Budget.findOne({
       userId: toObjectId(req.user._id),
       year,
@@ -220,14 +233,14 @@ const importBudgets = asyncHandler(async (req, res) => {
       spendingAmountUSD: toUSD(spendingAmount, currency, req.user),
       noted,
     });
-
     createdBudgets.push(budget);
   }
 
   return success(
     res,
     { count: createdBudgets.length },
-    msg(req, "budget.importedSuccess", { count: createdBudgets.length }),
+    msg(req, "budget.importedSuccess", { count: createdBudgets.length }) ||
+      `Imported ${createdBudgets.length}`
   );
 });
 
